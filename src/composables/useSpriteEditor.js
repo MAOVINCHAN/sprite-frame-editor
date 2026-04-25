@@ -1,0 +1,325 @@
+import { computed, reactive, ref, shallowRef } from "vue";
+import { useClipboard } from "@vueuse/core";
+
+export const SPRITE_EDITOR_KEY = Symbol("sprite-editor");
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target?.result ?? "");
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+export function useSpriteEditor() {
+  const { copy } = useClipboard();
+
+  const imageElement = shallowRef(null);
+  const imageName = ref("");
+  const imgLoaded = ref(false);
+  const imgNaturalWidth = ref(0);
+  const imgNaturalHeight = ref(0);
+
+  const frameW = ref(64);
+  const frameH = ref(64);
+  const snapGridSize = ref(64);
+  const snapEnabled = ref(true);
+  const currentTool = ref("move");
+  const selection = reactive({
+    x: 0,
+    y: 0,
+    active: false,
+  });
+
+  let nextGroupId = 1;
+  let nextFrameId = 1;
+
+  const groups = ref([
+    {
+      id: `group_${nextGroupId++}`,
+      name: "默认动作",
+      frames: [],
+    },
+  ]);
+  const activeGroupId = ref(groups.value[0].id);
+
+  const activeGroup = computed(() =>
+    groups.value.find((group) => group.id === activeGroupId.value) ?? groups.value[0] ?? null,
+  );
+
+  function normalizePositiveInt(value, fallback = 1) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  function getSnapGridSize() {
+    return normalizePositiveInt(snapGridSize.value, 64);
+  }
+
+  function snapPointToGrid(x, y, gridSize = getSnapGridSize()) {
+    return {
+      x: Math.max(0, Math.min(Math.round(x / gridSize) * gridSize, imgNaturalWidth.value)),
+      y: Math.max(0, Math.min(Math.round(y / gridSize) * gridSize, imgNaturalHeight.value)),
+    };
+  }
+
+  function snapToGrid(x, y, gridSize = getSnapGridSize()) {
+    if (!imgLoaded.value) return { x, y };
+    const snapped = snapPointToGrid(x, y, gridSize);
+    return {
+      x: Math.min(snapped.x, Math.max(0, imgNaturalWidth.value - frameW.value)),
+      y: Math.min(snapped.y, Math.max(0, imgNaturalHeight.value - frameH.value)),
+    };
+  }
+
+  function applySnapIfEnabled(x, y) {
+    if (!imgLoaded.value) {
+      return { x: Math.max(0, x), y: Math.max(0, y) };
+    }
+    if (snapEnabled.value) {
+      return snapToGrid(x, y, getSnapGridSize());
+    }
+    return {
+      x: Math.max(0, Math.min(x, imgNaturalWidth.value - frameW.value)),
+      y: Math.max(0, Math.min(y, imgNaturalHeight.value - frameH.value)),
+    };
+  }
+
+  function clampToImage(coord) {
+    return {
+      x: Math.max(0, Math.min(coord.x, imgNaturalWidth.value)),
+      y: Math.max(0, Math.min(coord.y, imgNaturalHeight.value)),
+    };
+  }
+
+  function clampSelection() {
+    if (!imgLoaded.value) {
+      selection.active = false;
+      return;
+    }
+    selection.active = true;
+    selection.x = Math.min(Math.max(0, selection.x), Math.max(0, imgNaturalWidth.value - frameW.value));
+    selection.y = Math.min(Math.max(0, selection.y), Math.max(0, imgNaturalHeight.value - frameH.value));
+  }
+
+  function refreshSelectionPosition() {
+    if (!imgLoaded.value) return;
+    const snapped = applySnapIfEnabled(selection.x, selection.y);
+    selection.x = snapped.x;
+    selection.y = snapped.y;
+    clampSelection();
+  }
+
+  function setSelection(x, y) {
+    selection.x = x;
+    selection.y = y;
+    clampSelection();
+  }
+
+  function setFrameSize(width, height) {
+    frameW.value = normalizePositiveInt(width, frameW.value);
+    frameH.value = normalizePositiveInt(height, frameH.value);
+    refreshSelectionPosition();
+  }
+
+  function setSnapGridValue(value) {
+    snapGridSize.value = normalizePositiveInt(value, snapGridSize.value);
+    refreshSelectionPosition();
+  }
+
+  function setSnapEnabled(value) {
+    snapEnabled.value = Boolean(value);
+    refreshSelectionPosition();
+  }
+
+  function syncSnapToFrame() {
+    snapGridSize.value = frameW.value;
+    refreshSelectionPosition();
+  }
+
+  function setSnapToFive() {
+    snapGridSize.value = 5;
+    refreshSelectionPosition();
+  }
+
+  function setActiveTool(tool) {
+    currentTool.value = tool === "rect" ? "rect" : "move";
+  }
+
+  async function handleImageUpload(file) {
+    if (!file) return;
+    const src = await readFileAsDataUrl(file);
+    const image = await loadImage(src);
+    imageElement.value = image;
+    imageName.value = file.name;
+    imgLoaded.value = true;
+    imgNaturalWidth.value = image.width;
+    imgNaturalHeight.value = image.height;
+    selection.x = 0;
+    selection.y = 0;
+    clampSelection();
+  }
+
+  function addGroup(name) {
+    const next = {
+      id: `group_${nextGroupId++}`,
+      name: name?.trim() || "新分组",
+      frames: [],
+    };
+    groups.value = [...groups.value, next];
+    activeGroupId.value = next.id;
+  }
+
+  function setActiveGroup(groupId) {
+    activeGroupId.value = groupId;
+  }
+
+  function deleteGroup(groupId) {
+    if (groups.value.length <= 1) return;
+    groups.value = groups.value.filter((group) => group.id !== groupId);
+    if (activeGroupId.value === groupId) {
+      activeGroupId.value = groups.value[0]?.id ?? null;
+    }
+  }
+
+  function captureCurrentFrame() {
+    if (!imgLoaded.value || !activeGroup.value) return;
+    clampSelection();
+    activeGroup.value.frames.push({
+      id: `frame_${nextFrameId++}`,
+      name: `frame_${activeGroup.value.frames.length + 1}`,
+      x: Math.round(selection.x),
+      y: Math.round(selection.y),
+      w: frameW.value,
+      h: frameH.value,
+    });
+  }
+
+  function generateAllGridFrames() {
+    if (!imgLoaded.value || !activeGroup.value) return;
+    const cols = Math.floor(imgNaturalWidth.value / frameW.value);
+    const rows = Math.floor(imgNaturalHeight.value / frameH.value);
+    if (!cols || !rows) return;
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        activeGroup.value.frames.push({
+          id: `frame_${nextFrameId++}`,
+          name: `frame_${activeGroup.value.frames.length + 1}`,
+          x: col * frameW.value,
+          y: row * frameH.value,
+          w: frameW.value,
+          h: frameH.value,
+        });
+      }
+    }
+  }
+
+  function clearCurrentGroupFrames() {
+    if (!activeGroup.value) return;
+    activeGroup.value.frames = [];
+  }
+
+  function deleteFrame(frameId) {
+    if (!activeGroup.value) return;
+    activeGroup.value.frames = activeGroup.value.frames.filter((frame) => frame.id !== frameId);
+  }
+
+  function reorderFrames(sourceId, targetId) {
+    if (!activeGroup.value || sourceId === targetId) return;
+    const sourceIndex = activeGroup.value.frames.findIndex((frame) => frame.id === sourceId);
+    const targetIndex = activeGroup.value.frames.findIndex((frame) => frame.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const [moved] = activeGroup.value.frames.splice(sourceIndex, 1);
+    activeGroup.value.frames.splice(targetIndex, 0, moved);
+  }
+
+  function generateExportData() {
+    return {
+      meta: {
+        image: imgLoaded.value ? imageName.value || "spritesheet.png" : "",
+        frameWidth: frameW.value,
+        frameHeight: frameH.value,
+        snapGrid: getSnapGridSize(),
+      },
+      groups: groups.value.map((group) => ({
+        name: group.name,
+        frames: group.frames.map((frame) => ({
+          name: frame.name,
+          x: frame.x,
+          y: frame.y,
+          w: frame.w,
+          h: frame.h,
+        })),
+      })),
+    };
+  }
+
+  async function copyJson() {
+    await copy(JSON.stringify(generateExportData(), null, 2));
+  }
+
+  function downloadJson() {
+    const blob = new Blob([JSON.stringify(generateExportData(), null, 2)], {
+      type: "application/json",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `spritesheet_${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  return {
+    imageElement,
+    imageName,
+    imgLoaded,
+    imgNaturalWidth,
+    imgNaturalHeight,
+    frameW,
+    frameH,
+    snapGridSize,
+    snapEnabled,
+    currentTool,
+    selection,
+    groups,
+    activeGroupId,
+    activeGroup,
+    getSnapGridSize,
+    snapPointToGrid,
+    snapToGrid,
+    applySnapIfEnabled,
+    clampToImage,
+    clampSelection,
+    refreshSelectionPosition,
+    setSelection,
+    setFrameSize,
+    setSnapGridValue,
+    setSnapEnabled,
+    syncSnapToFrame,
+    setSnapToFive,
+    setActiveTool,
+    handleImageUpload,
+    addGroup,
+    setActiveGroup,
+    deleteGroup,
+    captureCurrentFrame,
+    generateAllGridFrames,
+    clearCurrentGroupFrames,
+    deleteFrame,
+    reorderFrames,
+    generateExportData,
+    copyJson,
+    downloadJson,
+  };
+}
