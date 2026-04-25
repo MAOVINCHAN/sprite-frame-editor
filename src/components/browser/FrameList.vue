@@ -29,6 +29,7 @@ function onDrop(event, targetId) {
         v-for="frame in editor.activeGroup.value?.frames ?? []"
         :key="frame.id"
         class="list-item"
+        :class="{ active: frame.id === editor.activeFrameId.value }"
         draggable="true"
         @dragstart="onDragStart($event, frame.id)"
         @dragover.prevent
@@ -36,9 +37,18 @@ function onDrop(event, targetId) {
       >
         <span class="drag-handle">⋮⋮</span>
         <span class="tree-icon">•</span>
-        <span class="tree-label">
-          {{ frame.name }} ({{ frame.x }},{{ frame.y }}) {{ frame.w }}×{{ frame.h }}
-        </span>
+        <button class="frame-main" type="button" @click="editor.selectFrame(frame.id)">
+          <span class="tree-label">{{ frame.name }}</span>
+          <span class="frame-meta">({{ frame.x }},{{ frame.y }}) {{ frame.w }}×{{ frame.h }}</span>
+        </button>
+        <input
+          class="frame-name-input"
+          :value="frame.name"
+          type="text"
+          maxlength="40"
+          @change="editor.updateFrameName(frame.id, $event.target.value)"
+        />
+        <button type="button" @click="editor.duplicateFrame(frame.id)">复制</button>
         <button type="button" @click="editor.deleteFrame(frame.id)">删除</button>
       </div>
     </div>

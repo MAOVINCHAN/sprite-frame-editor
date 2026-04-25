@@ -8,7 +8,13 @@ const editor = inject(SPRITE_EDITOR_KEY);
 
 <template>
   <div class="selection-bar">
-    <div class="hint-text">
+    <div class="selection-stats">
+      <span class="selection-stat"><strong>X</strong>{{ editor.selection.x }}</span>
+      <span class="selection-stat"><strong>Y</strong>{{ editor.selection.y }}</span>
+      <span class="selection-stat"><strong>W</strong>{{ editor.frameW.value }}</span>
+      <span class="selection-stat"><strong>H</strong>{{ editor.frameH.value }}</span>
+    </div>
+    <div class="hint-text selection-shortcuts">
       <kbd>拖拽</kbd>
       <span>/</span>
       <kbd>←↑↓→</kbd>
@@ -16,7 +22,15 @@ const editor = inject(SPRITE_EDITOR_KEY);
     </div>
     <button class="btn" type="button" @click="editor.captureCurrentFrame">
       <Hand :size="16" />
-      <span>记录当前帧</span>
+      <span>{{ editor.selectedFrame.value ? "新增一帧" : "记录当前帧" }}</span>
+    </button>
+    <button
+      v-if="editor.selectedFrame.value"
+      class="btn btn-soft"
+      type="button"
+      @click="editor.syncSelectionToActiveFrame"
+    >
+      <span>覆盖当前帧</span>
     </button>
     <button class="btn btn-outline" type="button" @click="editor.generateAllGridFrames">
       <ScanSearch :size="16" />

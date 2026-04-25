@@ -1,7 +1,10 @@
 <template>
   <section class="panel-section">
     <div class="section-header">
-      <span>资源浏览器</span>
+      <div>
+        <span>资源浏览器</span>
+        <p class="section-subtitle">管理动作组、帧顺序和命名</p>
+      </div>
     </div>
     <div class="explorer-shell">
       <GroupTabs />

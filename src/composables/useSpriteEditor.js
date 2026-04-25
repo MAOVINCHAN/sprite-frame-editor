@@ -40,6 +40,7 @@ export function useSpriteEditor() {
     y: 0,
     active: false,
   });
+  const activeFrameId = ref(null);
 
   let nextGroupId = 1;
   let nextFrameId = 1;
@@ -56,6 +57,16 @@ export function useSpriteEditor() {
   const activeGroup = computed(() =>
     groups.value.find((group) => group.id === activeGroupId.value) ?? groups.value[0] ?? null,
   );
+  const totalFrames = computed(() =>
+    groups.value.reduce((sum, group) => sum + group.frames.length, 0),
+  );
+  const selectedFrame = computed(
+    () => activeGroup.value?.frames.find((frame) => frame.id === activeFrameId.value) ?? null,
+  );
+  const imageSummary = computed(() => {
+    if (!imgLoaded.value) return "未上传图片";
+    return `${imgNaturalWidth.value} × ${imgNaturalHeight.value}`;
+  });
 
   function normalizePositiveInt(value, fallback = 1) {
     const parsed = Number.parseInt(value, 10);
@@ -182,6 +193,7 @@ export function useSpriteEditor() {
 
   function setActiveGroup(groupId) {
     activeGroupId.value = groupId;
+    activeFrameId.value = null;
   }
 
   function deleteGroup(groupId) {
@@ -190,19 +202,22 @@ export function useSpriteEditor() {
     if (activeGroupId.value === groupId) {
       activeGroupId.value = groups.value[0]?.id ?? null;
     }
+    activeFrameId.value = null;
   }
 
   function captureCurrentFrame() {
     if (!imgLoaded.value || !activeGroup.value) return;
     clampSelection();
-    activeGroup.value.frames.push({
+    const frame = {
       id: `frame_${nextFrameId++}`,
       name: `frame_${activeGroup.value.frames.length + 1}`,
       x: Math.round(selection.x),
       y: Math.round(selection.y),
       w: frameW.value,
       h: frameH.value,
-    });
+    };
+    activeGroup.value.frames.push(frame);
+    activeFrameId.value = frame.id;
   }
 
   function generateAllGridFrames() {
@@ -211,11 +226,12 @@ export function useSpriteEditor() {
     const rows = Math.floor(imgNaturalHeight.value / frameH.value);
     if (!cols || !rows) return;
 
+    const frames = [];
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
-        activeGroup.value.frames.push({
+        frames.push({
           id: `frame_${nextFrameId++}`,
-          name: `frame_${activeGroup.value.frames.length + 1}`,
+          name: `frame_${activeGroup.value.frames.length + frames.length + 1}`,
           x: col * frameW.value,
           y: row * frameH.value,
           w: frameW.value,
@@ -223,16 +239,22 @@ export function useSpriteEditor() {
         });
       }
     }
+    activeGroup.value.frames.push(...frames);
+    activeFrameId.value = frames[0]?.id ?? null;
   }
 
   function clearCurrentGroupFrames() {
     if (!activeGroup.value) return;
     activeGroup.value.frames = [];
+    activeFrameId.value = null;
   }
 
   function deleteFrame(frameId) {
     if (!activeGroup.value) return;
     activeGroup.value.frames = activeGroup.value.frames.filter((frame) => frame.id !== frameId);
+    if (activeFrameId.value === frameId) {
+      activeFrameId.value = activeGroup.value.frames[0]?.id ?? null;
+    }
   }
 
   function reorderFrames(sourceId, targetId) {
@@ -242,6 +264,42 @@ export function useSpriteEditor() {
     if (sourceIndex < 0 || targetIndex < 0) return;
     const [moved] = activeGroup.value.frames.splice(sourceIndex, 1);
     activeGroup.value.frames.splice(targetIndex, 0, moved);
+  }
+
+  function selectFrame(frameId) {
+    activeFrameId.value = frameId;
+    const frame = activeGroup.value?.frames.find((item) => item.id === frameId);
+    if (!frame) return;
+    setSelection(frame.x, frame.y);
+    setFrameSize(frame.w, frame.h);
+  }
+
+  function updateFrameName(frameId, name) {
+    const frame = activeGroup.value?.frames.find((item) => item.id === frameId);
+    if (!frame) return;
+    frame.name = name?.trim() || frame.name;
+  }
+
+  function duplicateFrame(frameId) {
+    const frame = activeGroup.value?.frames.find((item) => item.id === frameId);
+    if (!frame || !activeGroup.value) return;
+    const duplicate = {
+      ...frame,
+      id: `frame_${nextFrameId++}`,
+      name: `${frame.name} 副本`,
+    };
+    const frameIndex = activeGroup.value.frames.findIndex((item) => item.id === frameId);
+    activeGroup.value.frames.splice(frameIndex + 1, 0, duplicate);
+    activeFrameId.value = duplicate.id;
+  }
+
+  function syncSelectionToActiveFrame() {
+    const frame = selectedFrame.value;
+    if (!frame) return;
+    frame.x = Math.round(selection.x);
+    frame.y = Math.round(selection.y);
+    frame.w = frameW.value;
+    frame.h = frameH.value;
   }
 
   function generateExportData() {
@@ -295,6 +353,10 @@ export function useSpriteEditor() {
     groups,
     activeGroupId,
     activeGroup,
+    activeFrameId,
+    totalFrames,
+    selectedFrame,
+    imageSummary,
     getSnapGridSize,
     snapPointToGrid,
     snapToGrid,
@@ -318,6 +380,10 @@ export function useSpriteEditor() {
     clearCurrentGroupFrames,
     deleteFrame,
     reorderFrames,
+    selectFrame,
+    updateFrameName,
+    duplicateFrame,
+    syncSelectionToActiveFrame,
     generateExportData,
     copyJson,
     downloadJson,

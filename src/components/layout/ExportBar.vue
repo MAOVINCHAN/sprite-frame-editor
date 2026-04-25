@@ -8,6 +8,10 @@ const editor = inject(SPRITE_EDITOR_KEY);
 
 <template>
   <div class="export-bar">
+    <div class="export-summary">
+      <span class="hint-text">已准备 {{ editor.totalFrames.value }} 帧</span>
+      <span class="badge">{{ editor.groups.value.length }} 个分组</span>
+    </div>
     <button class="btn" type="button" @click="editor.copyJson">
       <Copy :size="16" />
       <span>复制 JSON</span>

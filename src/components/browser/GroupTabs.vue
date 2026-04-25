@@ -7,7 +7,7 @@ const newGroupName = ref("动作1");
 
 function addGroup() {
   editor.addGroup(newGroupName.value);
-  newGroupName.value = "";
+  newGroupName.value = `动作${editor.groups.value.length + 1}`;
 }
 </script>
 
@@ -22,7 +22,9 @@ function addGroup() {
         :class="{ active: group.id === editor.activeGroupId.value }"
       >
         <span class="tree-icon">▸</span>
-        <span class="group-name" @click="editor.setActiveGroup(group.id)">{{ group.name }}</span>
+        <button class="group-name-button" type="button" @click="editor.setActiveGroup(group.id)">
+          {{ group.name }}
+        </button>
         <span class="hint-text">{{ group.frames.length }}</span>
         <button type="button" @click="editor.deleteGroup(group.id)">删除</button>
       </div>
@@ -30,7 +32,12 @@ function addGroup() {
 
     <div class="explorer-actions">
       <span class="badge">{{ editor.groups.value.length }}</span>
-      <input v-model="newGroupName" type="text" placeholder="新分组名称" />
+      <input
+        v-model="newGroupName"
+        type="text"
+        placeholder="新分组名称"
+        @keydown.enter.prevent="addGroup"
+      />
       <button class="btn btn-small" type="button" @click="addGroup">创建</button>
     </div>
   </div>

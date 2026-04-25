@@ -76,6 +76,28 @@ function redrawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(editor.imageElement.value, 0, 0, drawWidth.value, drawHeight.value);
 
+  if (editor.snapEnabled.value) {
+    const grid = editor.getSnapGridSize() * scale.value;
+    if (grid >= 8) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(17, 24, 39, 0.08)";
+      ctx.lineWidth = 1;
+      for (let x = grid; x < canvas.width; x += grid) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = grid; y < canvas.height; y += grid) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   editor.groups.value.forEach((group) => {
     const active = group.id === editor.activeGroupId.value;
     group.frames.forEach((frame) => {
@@ -83,10 +105,15 @@ function redrawCanvas() {
       const sy = frame.y * scale.value;
       const sw = frame.w * scale.value;
       const sh = frame.h * scale.value;
-      ctx.strokeStyle = active ? "#0066cc" : "rgba(29, 29, 31, 0.46)";
-      ctx.lineWidth = active ? 2.5 : 1.5;
+      const highlighted = frame.id === editor.activeFrameId.value;
+      ctx.strokeStyle = highlighted ? "#f97316" : active ? "#0066cc" : "rgba(29, 29, 31, 0.46)";
+      ctx.lineWidth = highlighted ? 3 : active ? 2.5 : 1.5;
       ctx.strokeRect(sx, sy, sw, sh);
-      ctx.fillStyle = active ? "rgba(0, 102, 204, 0.08)" : "rgba(29, 29, 31, 0.05)";
+      ctx.fillStyle = highlighted
+        ? "rgba(249, 115, 22, 0.14)"
+        : active
+          ? "rgba(0, 102, 204, 0.08)"
+          : "rgba(29, 29, 31, 0.05)";
       ctx.fillRect(sx, sy, sw, sh);
     });
   });
@@ -185,6 +212,7 @@ function onPointerMove(event) {
 function onPointerUp() {
   isDragging.value = false;
   rectSelectStart.value = null;
+  editor.syncSelectionToActiveFrame();
 }
 
 function onArrowKey(event) {
@@ -245,6 +273,19 @@ onMounted(() => {
 <template>
   <div ref="wrapperRef" class="canvas-wrapper">
     <CanvasToolRail />
+    <div v-if="editor.imgLoaded.value" class="canvas-hud">
+      <span>{{ editor.imageName.value }}</span>
+      <span>{{ editor.imgNaturalWidth.value }} × {{ editor.imgNaturalHeight.value }}</span>
+      <span>网格 {{ editor.snapEnabled.value ? `${editor.getSnapGridSize()} px` : "关闭" }}</span>
+    </div>
+    <div v-if="editor.selectedFrame.value" class="canvas-selection-chip">
+      <span>当前帧</span>
+      <strong>{{ editor.selectedFrame.value.name }}</strong>
+    </div>
+    <div v-if="!editor.imgLoaded.value" class="canvas-empty-tip">
+      <strong>先上传一张雪碧图</strong>
+      <span>上传后可拖拽选区、矩形框选、批量生成网格帧。</span>
+    </div>
     <canvas ref="canvasRef" class="preview-canvas" @mousedown="onPointerDown" />
   </div>
 </template>
