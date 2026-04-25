@@ -1,7 +1,6 @@
 <script setup>
 import { provide } from "vue";
 import AppHeader from "./components/layout/AppHeader.vue";
-import ProjectOverview from "./components/layout/ProjectOverview.vue";
 import SelectionBar from "./components/layout/SelectionBar.vue";
 import ExportBar from "./components/layout/ExportBar.vue";
 import CanvasWorkspace from "./components/canvas/CanvasWorkspace.vue";
@@ -19,7 +18,6 @@ provide(SPRITE_EDITOR_KEY, editor);
   <div class="app-shell">
     <section class="main-area">
       <AppHeader />
-      <ProjectOverview />
       <CanvasWorkspace />
       <SelectionBar />
       <div class="toolbar">

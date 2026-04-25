@@ -153,16 +153,6 @@ export function useSpriteEditor() {
     refreshSelectionPosition();
   }
 
-  function syncSnapToFrame() {
-    snapGridSize.value = frameW.value;
-    refreshSelectionPosition();
-  }
-
-  function setSnapToFive() {
-    snapGridSize.value = 5;
-    refreshSelectionPosition();
-  }
-
   function setActiveTool(tool) {
     currentTool.value = tool === "rect" ? "rect" : "move";
   }
@@ -368,8 +358,6 @@ export function useSpriteEditor() {
     setFrameSize,
     setSnapGridValue,
     setSnapEnabled,
-    syncSnapToFrame,
-    setSnapToFive,
     setActiveTool,
     handleImageUpload,
     addGroup,

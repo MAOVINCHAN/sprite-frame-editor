@@ -4,10 +4,6 @@ import { Ruler } from "lucide-vue-next";
 import { SPRITE_EDITOR_KEY } from "../../composables/useSpriteEditor";
 
 const editor = inject(SPRITE_EDITOR_KEY);
-
-function applyFrameSize() {
-  editor.setFrameSize(editor.frameW.value, editor.frameH.value);
-}
 </script>
 
 <template>
@@ -19,13 +15,26 @@ function applyFrameSize() {
     <div class="compact-row">
       <div class="field-stack">
         <label>宽</label>
-        <input v-model="editor.frameW.value" type="number" min="1" max="2000" step="1" />
+        <input
+          :value="editor.frameW.value"
+          type="number"
+          min="1"
+          max="2000"
+          step="1"
+          @change="editor.setFrameSize($event.target.value, editor.frameH.value)"
+        />
       </div>
       <div class="field-stack">
         <label>高</label>
-        <input v-model="editor.frameH.value" type="number" min="1" max="2000" step="1" />
+        <input
+          :value="editor.frameH.value"
+          type="number"
+          min="1"
+          max="2000"
+          step="1"
+          @change="editor.setFrameSize(editor.frameW.value, $event.target.value)"
+        />
       </div>
-      <button class="btn btn-small" type="button" @click="applyFrameSize">应用</button>
     </div>
   </section>
 </template>

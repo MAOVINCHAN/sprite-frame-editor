@@ -60,7 +60,7 @@ select {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 10px;
+  gap: 8px;
   height: 100vh;
   padding: 12px 12px 12px clamp(12px, 2vw, 20px);
   background: transparent;
@@ -81,7 +81,7 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 0 4px;
+  padding: 0;
   white-space: nowrap;
 }
 
@@ -108,54 +108,18 @@ select {
 }
 
 .header-pill {
-  padding: 8px 12px;
+  min-height: 28px;
+  padding: 0 10px;
   color: var(--color-muted-strong);
   background: rgba(255, 255, 255, 0.66);
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: var(--radius-pill);
   font-size: 12px;
+  line-height: 1;
   backdrop-filter: blur(12px);
 }
 
-.overview-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 40px;
-  padding: 4px 2px;
-}
-
-.overview-title {
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 650;
-  color: var(--color-muted-strong);
-}
-
-.overview-tags {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.overview-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  color: var(--color-muted-strong);
-  background: rgba(255, 255, 255, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.86);
-  border-radius: var(--radius-pill);
-  font-size: 12px;
-  line-height: 1;
-}
-
-.overview-tag-primary {
+.header-pill-primary {
   color: var(--color-action-blue);
   background: rgba(22, 93, 255, 0.08);
   border-color: rgba(22, 93, 255, 0.14);
@@ -360,6 +324,10 @@ select {
   gap: 8px;
 }
 
+.compact-row-spread {
+  justify-content: space-between;
+}
+
 .field-stack {
   display: flex;
   flex: 1;
@@ -403,6 +371,13 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.checkbox-row-inline {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-self: flex-end;
+  min-height: 36px;
 }
 
 .checkbox-row input[type="checkbox"] {
@@ -726,7 +701,7 @@ kbd {
 
 @media (max-width: 833px) {
   .app-header,
-  .overview-strip {
+  .header-pill-row {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -743,10 +718,6 @@ kbd {
   .canvas-tools {
     left: 10px;
     top: 10px;
-  }
-
-  .overview-tags {
-    justify-content: flex-start;
   }
 
   .list-item {

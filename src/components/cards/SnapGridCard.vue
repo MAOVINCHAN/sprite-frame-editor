@@ -12,7 +12,7 @@ const editor = inject(SPRITE_EDITOR_KEY);
       <Grid2x2 :size="16" />
       <span>吸附网格</span>
     </div>
-    <div class="compact-row">
+    <div class="compact-row compact-row-spread">
       <div class="field-stack">
         <label>大小</label>
         <input
@@ -24,16 +24,14 @@ const editor = inject(SPRITE_EDITOR_KEY);
           @change="editor.setSnapGridValue($event.target.value)"
         />
       </div>
-      <button class="btn btn-small" type="button" @click="editor.syncSnapToFrame">同步帧宽</button>
-      <button class="btn btn-small btn-outline" type="button" @click="editor.setSnapToFive">5px</button>
+      <label class="checkbox-row checkbox-row-inline">
+        <input
+          :checked="editor.snapEnabled.value"
+          type="checkbox"
+          @change="editor.setSnapEnabled($event.target.checked)"
+        />
+        <span>启用吸附</span>
+      </label>
     </div>
-    <label class="checkbox-row">
-      <input
-        :checked="editor.snapEnabled.value"
-        type="checkbox"
-        @change="editor.setSnapEnabled($event.target.checked)"
-      />
-      <span>启用吸附</span>
-    </label>
   </section>
 </template>
