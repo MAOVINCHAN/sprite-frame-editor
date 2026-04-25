@@ -108,6 +108,9 @@ select {
 }
 
 .header-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 28px;
   padding: 0 10px;
   color: var(--color-muted-strong);
@@ -151,24 +154,12 @@ select {
   box-shadow: var(--shadow-product);
 }
 
-.canvas-hud,
 .canvas-selection-chip,
 .canvas-empty-tip {
   position: absolute;
   z-index: 2;
   backdrop-filter: blur(12px);
 }
-
-.canvas-hud {
-  top: 14px;
-  right: 14px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.canvas-hud span,
 .canvas-selection-chip,
 .canvas-empty-tip {
   padding: 8px 12px;
@@ -176,11 +167,6 @@ select {
   border: 1px solid rgba(255, 255, 255, 0.94);
   border-radius: 14px;
   box-shadow: 0 10px 26px rgba(73, 56, 28, 0.08);
-}
-
-.canvas-hud span {
-  color: var(--color-muted-strong);
-  font-size: 12px;
 }
 
 .canvas-selection-chip {

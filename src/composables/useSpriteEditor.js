@@ -32,7 +32,7 @@ export function useSpriteEditor() {
 
   const frameW = ref(64);
   const frameH = ref(64);
-  const snapGridSize = ref(64);
+  const snapGridSize = ref(10);
   const snapEnabled = ref(true);
   const currentTool = ref("move");
   const selection = reactive({
@@ -74,7 +74,7 @@ export function useSpriteEditor() {
   }
 
   function getSnapGridSize() {
-    return normalizePositiveInt(snapGridSize.value, 64);
+    return normalizePositiveInt(snapGridSize.value, 10);
   }
 
   function snapPointToGrid(x, y, gridSize = getSnapGridSize()) {

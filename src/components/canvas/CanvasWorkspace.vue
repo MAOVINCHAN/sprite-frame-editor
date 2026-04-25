@@ -273,11 +273,6 @@ onMounted(() => {
 <template>
   <div ref="wrapperRef" class="canvas-wrapper">
     <CanvasToolRail />
-    <div v-if="editor.imgLoaded.value" class="canvas-hud">
-      <span>{{ editor.imageName.value }}</span>
-      <span>{{ editor.imgNaturalWidth.value }} × {{ editor.imgNaturalHeight.value }}</span>
-      <span>网格 {{ editor.snapEnabled.value ? `${editor.getSnapGridSize()} px` : "关闭" }}</span>
-    </div>
     <div v-if="editor.selectedFrame.value" class="canvas-selection-chip">
       <span>当前帧</span>
       <strong>{{ editor.selectedFrame.value.name }}</strong>
