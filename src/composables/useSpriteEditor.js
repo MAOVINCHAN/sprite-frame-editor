@@ -73,68 +73,90 @@ export function useSpriteEditor() {
   });
   const canExportJson = computed(() => imgLoaded.value && totalFrames.value > 0);
 
-  function cloneGroups() {
+  function cloneFrameGeometry() {
     return groups.value.map((group) => ({
-      ...group,
-      frames: group.frames.map((frame) => ({ ...frame })),
+      id: group.id,
+      frames: group.frames.map((frame) => ({
+        id: frame.id,
+        x: frame.x,
+        y: frame.y,
+        w: frame.w,
+        h: frame.h,
+      })),
     }));
   }
 
-  function createSnapshot() {
+  function createCanvasSnapshot() {
     return {
-      imageSrc: imageSrc.value,
-      imageName: imageName.value,
-      imgLoaded: imgLoaded.value,
-      imgNaturalWidth: imgNaturalWidth.value,
-      imgNaturalHeight: imgNaturalHeight.value,
       frameW: frameW.value,
       frameH: frameH.value,
       snapGridSize: snapGridSize.value,
       snapEnabled: snapEnabled.value,
-      currentTool: currentTool.value,
       selection: { ...selection },
       activeFrameId: activeFrameId.value,
       activeGroupId: activeGroupId.value,
-      groups: cloneGroups(),
-      nextGroupId,
-      nextFrameId,
+      frameGeometry: cloneFrameGeometry(),
     };
   }
 
-  function restoreSnapshot(snapshot) {
-    imageSrc.value = snapshot.imageSrc;
-    imageElement.value = snapshot.imageSrc ? imageCache.get(snapshot.imageSrc) ?? null : null;
-    imageName.value = snapshot.imageName;
-    imgLoaded.value = snapshot.imgLoaded;
-    imgNaturalWidth.value = snapshot.imgNaturalWidth;
-    imgNaturalHeight.value = snapshot.imgNaturalHeight;
+  function restoreCanvasSnapshot(snapshot) {
     frameW.value = snapshot.frameW;
     frameH.value = snapshot.frameH;
     snapGridSize.value = snapshot.snapGridSize;
     snapEnabled.value = snapshot.snapEnabled;
-    currentTool.value = snapshot.currentTool;
     selection.x = snapshot.selection.x;
     selection.y = snapshot.selection.y;
     selection.active = snapshot.selection.active;
-    activeFrameId.value = snapshot.activeFrameId;
-    groups.value = snapshot.groups.map((group) => ({
-      ...group,
-      frames: group.frames.map((frame) => ({ ...frame })),
-    }));
+    snapshot.frameGeometry.forEach((snapshotGroup) => {
+      const group = groups.value.find((item) => item.id === snapshotGroup.id);
+      if (!group) return;
+      snapshotGroup.frames.forEach((snapshotFrame) => {
+        const frame = group.frames.find((item) => item.id === snapshotFrame.id);
+        if (!frame) return;
+        frame.x = snapshotFrame.x;
+        frame.y = snapshotFrame.y;
+        frame.w = snapshotFrame.w;
+        frame.h = snapshotFrame.h;
+      });
+    });
     activeGroupId.value = groups.value.some((group) => group.id === snapshot.activeGroupId)
       ? snapshot.activeGroupId
       : groups.value[0]?.id ?? null;
-    nextGroupId = snapshot.nextGroupId;
-    nextFrameId = snapshot.nextFrameId;
+    activeFrameId.value = activeGroup.value?.frames.some((frame) => frame.id === snapshot.activeFrameId)
+      ? snapshot.activeFrameId
+      : null;
   }
 
   const history = useHistoryStack({
-    snapshot: createSnapshot,
-    restore: restoreSnapshot,
+    snapshot: createCanvasSnapshot,
+    restore: restoreCanvasSnapshot,
   });
 
   function runWithHistory(action) {
     return history.runWithHistory(action);
+  }
+
+  let pendingCanvasSnapshot = null;
+
+  function hasCanvasSnapshotChanged(before, after) {
+    return JSON.stringify(before) !== JSON.stringify(after);
+  }
+
+  function beginCanvasOperation() {
+    pendingCanvasSnapshot = createCanvasSnapshot();
+  }
+
+  function commitCanvasOperation() {
+    if (!pendingCanvasSnapshot) return;
+    const before = pendingCanvasSnapshot;
+    pendingCanvasSnapshot = null;
+    if (hasCanvasSnapshotChanged(before, createCanvasSnapshot())) {
+      history.recordSnapshot(before);
+    }
+  }
+
+  function cancelCanvasOperation() {
+    pendingCanvasSnapshot = null;
   }
 
   function normalizePositiveInt(value, fallback = 1) {
@@ -249,31 +271,28 @@ export function useSpriteEditor() {
     const src = await readFileAsDataUrl(file);
     const image = await loadImage(src);
     imageCache.set(src, image);
-    runWithHistory(() => {
-      imageSrc.value = src;
-      imageElement.value = image;
-      imageName.value = file.name;
-      imgLoaded.value = true;
-      imgNaturalWidth.value = image.width;
-      imgNaturalHeight.value = image.height;
-      selection.x = 0;
-      selection.y = 0;
-      activeFrameId.value = null;
-      clampSelection();
-    });
+    imageSrc.value = src;
+    imageElement.value = image;
+    imageName.value = file.name;
+    imgLoaded.value = true;
+    imgNaturalWidth.value = image.width;
+    imgNaturalHeight.value = image.height;
+    selection.x = 0;
+    selection.y = 0;
+    activeFrameId.value = null;
+    clampSelection();
+    history.clearHistory();
   }
 
   function addGroup(name) {
-    runWithHistory(() => {
-      const next = {
-        id: `group_${nextGroupId++}`,
-        name: name?.trim() || "新分组",
-        frames: [],
-      };
-      groups.value = [...groups.value, next];
-      activeGroupId.value = next.id;
-      activeFrameId.value = null;
-    });
+    const next = {
+      id: `group_${nextGroupId++}`,
+      name: name?.trim() || "新分组",
+      frames: [],
+    };
+    groups.value = [...groups.value, next];
+    activeGroupId.value = next.id;
+    activeFrameId.value = null;
   }
 
   function setActiveGroup(groupId) {
@@ -283,30 +302,26 @@ export function useSpriteEditor() {
 
   function deleteGroup(groupId) {
     if (groups.value.length <= 1) return;
-    runWithHistory(() => {
-      groups.value = groups.value.filter((group) => group.id !== groupId);
-      if (activeGroupId.value === groupId) {
-        activeGroupId.value = groups.value[0]?.id ?? null;
-      }
-      activeFrameId.value = null;
-    });
+    groups.value = groups.value.filter((group) => group.id !== groupId);
+    if (activeGroupId.value === groupId) {
+      activeGroupId.value = groups.value[0]?.id ?? null;
+    }
+    activeFrameId.value = null;
   }
 
   function captureCurrentFrame() {
     if (!imgLoaded.value || !activeGroup.value) return;
-    runWithHistory(() => {
-      clampSelection();
-      const frame = {
-        id: `frame_${nextFrameId++}`,
-        name: `frame_${activeGroup.value.frames.length + 1}`,
-        x: Math.round(selection.x),
-        y: Math.round(selection.y),
-        w: frameW.value,
-        h: frameH.value,
-      };
-      activeGroup.value.frames.push(frame);
-      activeFrameId.value = frame.id;
-    });
+    clampSelection();
+    const frame = {
+      id: `frame_${nextFrameId++}`,
+      name: `frame_${activeGroup.value.frames.length + 1}`,
+      x: Math.round(selection.x),
+      y: Math.round(selection.y),
+      w: frameW.value,
+      h: frameH.value,
+    };
+    activeGroup.value.frames.push(frame);
+    activeFrameId.value = frame.id;
   }
 
   function generateAllGridFrames() {
@@ -315,31 +330,27 @@ export function useSpriteEditor() {
     const rows = Math.floor(imgNaturalHeight.value / frameH.value);
     if (!cols || !rows) return;
 
-    runWithHistory(() => {
-      const frames = [];
-      for (let row = 0; row < rows; row += 1) {
-        for (let col = 0; col < cols; col += 1) {
-          frames.push({
-            id: `frame_${nextFrameId++}`,
-            name: `frame_${activeGroup.value.frames.length + frames.length + 1}`,
-            x: col * frameW.value,
-            y: row * frameH.value,
-            w: frameW.value,
-            h: frameH.value,
-          });
-        }
+    const frames = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        frames.push({
+          id: `frame_${nextFrameId++}`,
+          name: `frame_${activeGroup.value.frames.length + frames.length + 1}`,
+          x: col * frameW.value,
+          y: row * frameH.value,
+          w: frameW.value,
+          h: frameH.value,
+        });
       }
-      activeGroup.value.frames.push(...frames);
-      activeFrameId.value = frames[0]?.id ?? null;
-    });
+    }
+    activeGroup.value.frames.push(...frames);
+    activeFrameId.value = frames[0]?.id ?? null;
   }
 
   function clearCurrentGroupFrames() {
     if (!activeGroup.value) return;
-    runWithHistory(() => {
-      activeGroup.value.frames = [];
-      activeFrameId.value = null;
-    });
+    activeGroup.value.frames = [];
+    activeFrameId.value = null;
   }
 
   function toggleGridFrames() {
@@ -352,12 +363,10 @@ export function useSpriteEditor() {
 
   function deleteFrame(frameId) {
     if (!activeGroup.value) return;
-    runWithHistory(() => {
-      activeGroup.value.frames = activeGroup.value.frames.filter((frame) => frame.id !== frameId);
-      if (activeFrameId.value === frameId) {
-        activeFrameId.value = activeGroup.value.frames[0]?.id ?? null;
-      }
-    });
+    activeGroup.value.frames = activeGroup.value.frames.filter((frame) => frame.id !== frameId);
+    if (activeFrameId.value === frameId) {
+      activeFrameId.value = activeGroup.value.frames[0]?.id ?? null;
+    }
   }
 
   function reorderFrames(sourceId, targetId) {
@@ -365,10 +374,8 @@ export function useSpriteEditor() {
     const sourceIndex = activeGroup.value.frames.findIndex((frame) => frame.id === sourceId);
     const targetIndex = activeGroup.value.frames.findIndex((frame) => frame.id === targetId);
     if (sourceIndex < 0 || targetIndex < 0) return;
-    runWithHistory(() => {
-      const [moved] = activeGroup.value.frames.splice(sourceIndex, 1);
-      activeGroup.value.frames.splice(targetIndex, 0, moved);
-    });
+    const [moved] = activeGroup.value.frames.splice(sourceIndex, 1);
+    activeGroup.value.frames.splice(targetIndex, 0, moved);
   }
 
   function selectFrame(frameId) {
@@ -384,24 +391,20 @@ export function useSpriteEditor() {
     if (!frame) return;
     const nextName = name?.trim() || frame.name;
     if (nextName === frame.name) return;
-    runWithHistory(() => {
-      frame.name = nextName;
-    });
+    frame.name = nextName;
   }
 
   function duplicateFrame(frameId) {
     const frame = activeGroup.value?.frames.find((item) => item.id === frameId);
     if (!frame || !activeGroup.value) return;
-    runWithHistory(() => {
-      const duplicate = {
-        ...frame,
-        id: `frame_${nextFrameId++}`,
-        name: `${frame.name} 副本`,
-      };
-      const frameIndex = activeGroup.value.frames.findIndex((item) => item.id === frameId);
-      activeGroup.value.frames.splice(frameIndex + 1, 0, duplicate);
-      activeFrameId.value = duplicate.id;
-    });
+    const duplicate = {
+      ...frame,
+      id: `frame_${nextFrameId++}`,
+      name: `${frame.name} 副本`,
+    };
+    const frameIndex = activeGroup.value.frames.findIndex((item) => item.id === frameId);
+    activeGroup.value.frames.splice(frameIndex + 1, 0, duplicate);
+    activeFrameId.value = duplicate.id;
   }
 
   function syncSelectionToActiveFrame() {
@@ -416,12 +419,17 @@ export function useSpriteEditor() {
     if (frame.x === nextFrame.x && frame.y === nextFrame.y && frame.w === nextFrame.w && frame.h === nextFrame.h) {
       return;
     }
-    runWithHistory(() => {
+    const applyFrameGeometry = () => {
       frame.x = nextFrame.x;
       frame.y = nextFrame.y;
       frame.w = nextFrame.w;
       frame.h = nextFrame.h;
-    });
+    };
+    if (pendingCanvasSnapshot) {
+      applyFrameGeometry();
+      return;
+    }
+    runWithHistory(applyFrameGeometry);
   }
 
   function generateExportData() {
@@ -498,6 +506,9 @@ export function useSpriteEditor() {
     setSnapGridValue,
     setSnapEnabled,
     setActiveTool,
+    beginCanvasOperation,
+    commitCanvasOperation,
+    cancelCanvasOperation,
     handleImageUpload,
     addGroup,
     setActiveGroup,

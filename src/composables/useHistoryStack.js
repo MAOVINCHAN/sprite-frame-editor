@@ -21,6 +21,11 @@ export function useHistoryStack({ snapshot, restore, limit = 80 }) {
     return result;
   }
 
+  function recordSnapshot(state) {
+    if (isRestoring.value) return;
+    pushUndoState(state);
+  }
+
   function clearHistory() {
     undoStack.value = [];
     redoStack.value = [];
@@ -52,6 +57,7 @@ export function useHistoryStack({ snapshot, restore, limit = 80 }) {
     canUndo,
     canRedo,
     runWithHistory,
+    recordSnapshot,
     clearHistory,
     undo,
     redo,

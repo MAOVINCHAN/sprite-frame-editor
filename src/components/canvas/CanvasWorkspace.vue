@@ -149,6 +149,7 @@ function onPointerDown(event) {
   const coord = editor.clampToImage(mouseToOriginal(event));
 
   if (editor.currentTool.value === "rect") {
+    editor.beginCanvasOperation();
     isDragging.value = true;
     rectSelectStart.value = editor.snapEnabled.value
       ? editor.snapPointToGrid(coord.x, coord.y, editor.getSnapGridSize())
@@ -164,6 +165,7 @@ function onPointerDown(event) {
     coord.y >= editor.selection.y &&
     coord.y <= editor.selection.y + editor.frameH.value
   ) {
+    editor.beginCanvasOperation();
     isDragging.value = true;
     dragOffsetX.value = coord.x - editor.selection.x;
     dragOffsetY.value = coord.y - editor.selection.y;
@@ -210,9 +212,15 @@ function onPointerMove(event) {
 }
 
 function onPointerUp() {
+  const wasDragging = isDragging.value;
   isDragging.value = false;
   rectSelectStart.value = null;
-  editor.syncSelectionToActiveFrame();
+  if (wasDragging) {
+    editor.syncSelectionToActiveFrame();
+    editor.commitCanvasOperation();
+  } else {
+    editor.cancelCanvasOperation();
+  }
 }
 
 function isEditableTarget(target) {
@@ -241,6 +249,7 @@ function onKeyDown(event) {
     return;
   }
 
+  if (isEditableTarget(event.target)) return;
   if (!editor.imgLoaded.value) return;
   const step = event.shiftKey ? 10 : 1;
   let nx = editor.selection.x;
@@ -259,8 +268,10 @@ function onKeyDown(event) {
   }
 
   event.preventDefault();
+  editor.beginCanvasOperation();
   const snapped = editor.applySnapIfEnabled(nx, ny);
   editor.setSelection(snapped.x, snapped.y);
+  editor.commitCanvasOperation();
   redrawCanvas();
 }
 
