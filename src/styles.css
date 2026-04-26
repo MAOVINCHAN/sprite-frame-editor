@@ -771,7 +771,6 @@ input:focus {
 
 .frame-row {
   position: relative;
-  min-height: 34px;
   padding: 3px 5px;
   background: #ffffff;
   border: 1px solid transparent;
@@ -809,7 +808,7 @@ input:focus {
 
 .frame-name-input {
   min-height: 26px;
-  padding: 4px 7px;
+  padding: 0px 7px;
   border-radius: 6px;
   font-size: 12px;
 }
