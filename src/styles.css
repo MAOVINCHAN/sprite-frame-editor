@@ -205,6 +205,7 @@ select {
 }
 
 .tool-toggle {
+  position: relative;
   width: 36px;
   height: 36px;
   display: inline-flex;
@@ -219,10 +220,66 @@ select {
   transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
 }
 
+.tool-toggle::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  z-index: 5;
+  max-width: 160px;
+  padding: 6px 8px;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-4px, -50%);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  white-space: nowrap;
+}
+
+.tool-toggle::before {
+  content: "";
+  position: absolute;
+  left: calc(100% + 5px);
+  top: 50%;
+  z-index: 5;
+  border: 5px solid transparent;
+  border-right-color: rgba(15, 23, 42, 0.92);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-4px, -50%);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.tool-toggle:hover::after,
+.tool-toggle:hover::before,
+.tool-toggle:focus-visible::after,
+.tool-toggle:focus-visible::before {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
 .tool-toggle.active {
   color: var(--color-action-blue);
   background: #f3f8ff;
   border-color: var(--color-action-blue);
+}
+
+.tool-toggle:disabled {
+  color: rgba(20, 33, 61, 0.28);
+  background: rgba(255, 255, 255, 0.54);
+  border-color: rgba(20, 33, 61, 0.06);
+  cursor: not-allowed;
+}
+
+.tool-separator {
+  width: 24px;
+  height: 1px;
+  align-self: center;
+  background: rgba(20, 33, 61, 0.14);
 }
 
 .selection-bar,
@@ -402,7 +459,8 @@ input:focus {
   filter: brightness(1.04);
 }
 
-.btn:disabled:hover {
+.btn:disabled:hover,
+.tool-toggle:disabled:hover {
   filter: none;
 }
 

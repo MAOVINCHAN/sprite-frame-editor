@@ -192,7 +192,7 @@ function onPointerMove(event) {
         ? Math.max(editor.getSnapGridSize(), Math.round(rawH / editor.getSnapGridSize()) * editor.getSnapGridSize())
         : Math.max(1, Math.round(rawH));
 
-      editor.setFrameSize(nextWidth, nextHeight);
+      editor.setFrameSize(nextWidth, nextHeight, { recordHistory: false });
       editor.setSelection(
         Math.min(minX, Math.max(0, editor.imgNaturalWidth.value - editor.frameW.value)),
         Math.min(minY, Math.max(0, editor.imgNaturalHeight.value - editor.frameH.value)),
@@ -215,7 +215,32 @@ function onPointerUp() {
   editor.syncSelectionToActiveFrame();
 }
 
-function onArrowKey(event) {
+function isEditableTarget(target) {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable;
+}
+
+function onKeyDown(event) {
+  const key = event.key.toLowerCase();
+  const modifierPressed = event.metaKey || event.ctrlKey;
+
+  if (!isEditableTarget(event.target) && modifierPressed && key === "z") {
+    event.preventDefault();
+    if (event.shiftKey) {
+      editor.redo();
+    } else {
+      editor.undo();
+    }
+    redrawCanvas();
+    return;
+  }
+
+  if (!isEditableTarget(event.target) && modifierPressed && key === "y") {
+    event.preventDefault();
+    editor.redo();
+    redrawCanvas();
+    return;
+  }
+
   if (!editor.imgLoaded.value) return;
   const step = event.shiftKey ? 10 : 1;
   let nx = editor.selection.x;
@@ -262,7 +287,7 @@ watchEffect(() => {
 
 useEventListener(window, "mousemove", onPointerMove);
 useEventListener(window, "mouseup", onPointerUp);
-useEventListener(window, "keydown", onArrowKey);
+useEventListener(window, "keydown", onKeyDown);
 useResizeObserver(wrapperRef, () => redrawCanvas());
 
 onMounted(() => {

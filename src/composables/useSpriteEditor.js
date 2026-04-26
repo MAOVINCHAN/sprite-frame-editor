@@ -1,5 +1,6 @@
 import { computed, reactive, ref, shallowRef } from "vue";
 import { useClipboard } from "@vueuse/core";
+import { useHistoryStack } from "./useHistoryStack";
 
 export const SPRITE_EDITOR_KEY = Symbol("sprite-editor");
 
@@ -25,6 +26,7 @@ export function useSpriteEditor() {
   const { copy } = useClipboard();
 
   const imageElement = shallowRef(null);
+  const imageSrc = ref("");
   const imageName = ref("");
   const imgLoaded = ref(false);
   const imgNaturalWidth = ref(0);
@@ -44,6 +46,7 @@ export function useSpriteEditor() {
 
   let nextGroupId = 1;
   let nextFrameId = 1;
+  const imageCache = new Map();
 
   const groups = ref([
     {
@@ -68,6 +71,70 @@ export function useSpriteEditor() {
     return `${imgNaturalWidth.value} × ${imgNaturalHeight.value}`;
   });
   const canExportJson = computed(() => imgLoaded.value && totalFrames.value > 0);
+
+  function cloneGroups() {
+    return groups.value.map((group) => ({
+      ...group,
+      frames: group.frames.map((frame) => ({ ...frame })),
+    }));
+  }
+
+  function createSnapshot() {
+    return {
+      imageSrc: imageSrc.value,
+      imageName: imageName.value,
+      imgLoaded: imgLoaded.value,
+      imgNaturalWidth: imgNaturalWidth.value,
+      imgNaturalHeight: imgNaturalHeight.value,
+      frameW: frameW.value,
+      frameH: frameH.value,
+      snapGridSize: snapGridSize.value,
+      snapEnabled: snapEnabled.value,
+      currentTool: currentTool.value,
+      selection: { ...selection },
+      activeFrameId: activeFrameId.value,
+      activeGroupId: activeGroupId.value,
+      groups: cloneGroups(),
+      nextGroupId,
+      nextFrameId,
+    };
+  }
+
+  function restoreSnapshot(snapshot) {
+    imageSrc.value = snapshot.imageSrc;
+    imageElement.value = snapshot.imageSrc ? imageCache.get(snapshot.imageSrc) ?? null : null;
+    imageName.value = snapshot.imageName;
+    imgLoaded.value = snapshot.imgLoaded;
+    imgNaturalWidth.value = snapshot.imgNaturalWidth;
+    imgNaturalHeight.value = snapshot.imgNaturalHeight;
+    frameW.value = snapshot.frameW;
+    frameH.value = snapshot.frameH;
+    snapGridSize.value = snapshot.snapGridSize;
+    snapEnabled.value = snapshot.snapEnabled;
+    currentTool.value = snapshot.currentTool;
+    selection.x = snapshot.selection.x;
+    selection.y = snapshot.selection.y;
+    selection.active = snapshot.selection.active;
+    activeFrameId.value = snapshot.activeFrameId;
+    groups.value = snapshot.groups.map((group) => ({
+      ...group,
+      frames: group.frames.map((frame) => ({ ...frame })),
+    }));
+    activeGroupId.value = groups.value.some((group) => group.id === snapshot.activeGroupId)
+      ? snapshot.activeGroupId
+      : groups.value[0]?.id ?? null;
+    nextGroupId = snapshot.nextGroupId;
+    nextFrameId = snapshot.nextFrameId;
+  }
+
+  const history = useHistoryStack({
+    snapshot: createSnapshot,
+    restore: restoreSnapshot,
+  });
+
+  function runWithHistory(action) {
+    return history.runWithHistory(action);
+  }
 
   function normalizePositiveInt(value, fallback = 1) {
     const parsed = Number.parseInt(value, 10);
@@ -138,20 +205,38 @@ export function useSpriteEditor() {
     clampSelection();
   }
 
-  function setFrameSize(width, height) {
+  function setFrameSize(width, height, options = {}) {
+    if (options.recordHistory === false) {
+      frameW.value = normalizePositiveInt(width, frameW.value);
+      frameH.value = normalizePositiveInt(height, frameH.value);
+      refreshSelectionPosition();
+      return;
+    }
+    runWithHistory(() => {
+      frameW.value = normalizePositiveInt(width, frameW.value);
+      frameH.value = normalizePositiveInt(height, frameH.value);
+      refreshSelectionPosition();
+    });
+  }
+
+  function setFrameSizeSilently(width, height) {
     frameW.value = normalizePositiveInt(width, frameW.value);
     frameH.value = normalizePositiveInt(height, frameH.value);
     refreshSelectionPosition();
   }
 
   function setSnapGridValue(value) {
-    snapGridSize.value = normalizePositiveInt(value, snapGridSize.value);
-    refreshSelectionPosition();
+    runWithHistory(() => {
+      snapGridSize.value = normalizePositiveInt(value, snapGridSize.value);
+      refreshSelectionPosition();
+    });
   }
 
   function setSnapEnabled(value) {
-    snapEnabled.value = Boolean(value);
-    refreshSelectionPosition();
+    runWithHistory(() => {
+      snapEnabled.value = Boolean(value);
+      refreshSelectionPosition();
+    });
   }
 
   function setActiveTool(tool) {
@@ -162,24 +247,32 @@ export function useSpriteEditor() {
     if (!file) return;
     const src = await readFileAsDataUrl(file);
     const image = await loadImage(src);
-    imageElement.value = image;
-    imageName.value = file.name;
-    imgLoaded.value = true;
-    imgNaturalWidth.value = image.width;
-    imgNaturalHeight.value = image.height;
-    selection.x = 0;
-    selection.y = 0;
-    clampSelection();
+    imageCache.set(src, image);
+    runWithHistory(() => {
+      imageSrc.value = src;
+      imageElement.value = image;
+      imageName.value = file.name;
+      imgLoaded.value = true;
+      imgNaturalWidth.value = image.width;
+      imgNaturalHeight.value = image.height;
+      selection.x = 0;
+      selection.y = 0;
+      activeFrameId.value = null;
+      clampSelection();
+    });
   }
 
   function addGroup(name) {
-    const next = {
-      id: `group_${nextGroupId++}`,
-      name: name?.trim() || "新分组",
-      frames: [],
-    };
-    groups.value = [...groups.value, next];
-    activeGroupId.value = next.id;
+    runWithHistory(() => {
+      const next = {
+        id: `group_${nextGroupId++}`,
+        name: name?.trim() || "新分组",
+        frames: [],
+      };
+      groups.value = [...groups.value, next];
+      activeGroupId.value = next.id;
+      activeFrameId.value = null;
+    });
   }
 
   function setActiveGroup(groupId) {
@@ -189,26 +282,30 @@ export function useSpriteEditor() {
 
   function deleteGroup(groupId) {
     if (groups.value.length <= 1) return;
-    groups.value = groups.value.filter((group) => group.id !== groupId);
-    if (activeGroupId.value === groupId) {
-      activeGroupId.value = groups.value[0]?.id ?? null;
-    }
-    activeFrameId.value = null;
+    runWithHistory(() => {
+      groups.value = groups.value.filter((group) => group.id !== groupId);
+      if (activeGroupId.value === groupId) {
+        activeGroupId.value = groups.value[0]?.id ?? null;
+      }
+      activeFrameId.value = null;
+    });
   }
 
   function captureCurrentFrame() {
     if (!imgLoaded.value || !activeGroup.value) return;
-    clampSelection();
-    const frame = {
-      id: `frame_${nextFrameId++}`,
-      name: `frame_${activeGroup.value.frames.length + 1}`,
-      x: Math.round(selection.x),
-      y: Math.round(selection.y),
-      w: frameW.value,
-      h: frameH.value,
-    };
-    activeGroup.value.frames.push(frame);
-    activeFrameId.value = frame.id;
+    runWithHistory(() => {
+      clampSelection();
+      const frame = {
+        id: `frame_${nextFrameId++}`,
+        name: `frame_${activeGroup.value.frames.length + 1}`,
+        x: Math.round(selection.x),
+        y: Math.round(selection.y),
+        w: frameW.value,
+        h: frameH.value,
+      };
+      activeGroup.value.frames.push(frame);
+      activeFrameId.value = frame.id;
+    });
   }
 
   function generateAllGridFrames() {
@@ -217,35 +314,41 @@ export function useSpriteEditor() {
     const rows = Math.floor(imgNaturalHeight.value / frameH.value);
     if (!cols || !rows) return;
 
-    const frames = [];
-    for (let row = 0; row < rows; row += 1) {
-      for (let col = 0; col < cols; col += 1) {
-        frames.push({
-          id: `frame_${nextFrameId++}`,
-          name: `frame_${activeGroup.value.frames.length + frames.length + 1}`,
-          x: col * frameW.value,
-          y: row * frameH.value,
-          w: frameW.value,
-          h: frameH.value,
-        });
+    runWithHistory(() => {
+      const frames = [];
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          frames.push({
+            id: `frame_${nextFrameId++}`,
+            name: `frame_${activeGroup.value.frames.length + frames.length + 1}`,
+            x: col * frameW.value,
+            y: row * frameH.value,
+            w: frameW.value,
+            h: frameH.value,
+          });
+        }
       }
-    }
-    activeGroup.value.frames.push(...frames);
-    activeFrameId.value = frames[0]?.id ?? null;
+      activeGroup.value.frames.push(...frames);
+      activeFrameId.value = frames[0]?.id ?? null;
+    });
   }
 
   function clearCurrentGroupFrames() {
     if (!activeGroup.value) return;
-    activeGroup.value.frames = [];
-    activeFrameId.value = null;
+    runWithHistory(() => {
+      activeGroup.value.frames = [];
+      activeFrameId.value = null;
+    });
   }
 
   function deleteFrame(frameId) {
     if (!activeGroup.value) return;
-    activeGroup.value.frames = activeGroup.value.frames.filter((frame) => frame.id !== frameId);
-    if (activeFrameId.value === frameId) {
-      activeFrameId.value = activeGroup.value.frames[0]?.id ?? null;
-    }
+    runWithHistory(() => {
+      activeGroup.value.frames = activeGroup.value.frames.filter((frame) => frame.id !== frameId);
+      if (activeFrameId.value === frameId) {
+        activeFrameId.value = activeGroup.value.frames[0]?.id ?? null;
+      }
+    });
   }
 
   function reorderFrames(sourceId, targetId) {
@@ -253,8 +356,10 @@ export function useSpriteEditor() {
     const sourceIndex = activeGroup.value.frames.findIndex((frame) => frame.id === sourceId);
     const targetIndex = activeGroup.value.frames.findIndex((frame) => frame.id === targetId);
     if (sourceIndex < 0 || targetIndex < 0) return;
-    const [moved] = activeGroup.value.frames.splice(sourceIndex, 1);
-    activeGroup.value.frames.splice(targetIndex, 0, moved);
+    runWithHistory(() => {
+      const [moved] = activeGroup.value.frames.splice(sourceIndex, 1);
+      activeGroup.value.frames.splice(targetIndex, 0, moved);
+    });
   }
 
   function selectFrame(frameId) {
@@ -262,35 +367,52 @@ export function useSpriteEditor() {
     const frame = activeGroup.value?.frames.find((item) => item.id === frameId);
     if (!frame) return;
     setSelection(frame.x, frame.y);
-    setFrameSize(frame.w, frame.h);
+    setFrameSizeSilently(frame.w, frame.h);
   }
 
   function updateFrameName(frameId, name) {
     const frame = activeGroup.value?.frames.find((item) => item.id === frameId);
     if (!frame) return;
-    frame.name = name?.trim() || frame.name;
+    const nextName = name?.trim() || frame.name;
+    if (nextName === frame.name) return;
+    runWithHistory(() => {
+      frame.name = nextName;
+    });
   }
 
   function duplicateFrame(frameId) {
     const frame = activeGroup.value?.frames.find((item) => item.id === frameId);
     if (!frame || !activeGroup.value) return;
-    const duplicate = {
-      ...frame,
-      id: `frame_${nextFrameId++}`,
-      name: `${frame.name} 副本`,
-    };
-    const frameIndex = activeGroup.value.frames.findIndex((item) => item.id === frameId);
-    activeGroup.value.frames.splice(frameIndex + 1, 0, duplicate);
-    activeFrameId.value = duplicate.id;
+    runWithHistory(() => {
+      const duplicate = {
+        ...frame,
+        id: `frame_${nextFrameId++}`,
+        name: `${frame.name} 副本`,
+      };
+      const frameIndex = activeGroup.value.frames.findIndex((item) => item.id === frameId);
+      activeGroup.value.frames.splice(frameIndex + 1, 0, duplicate);
+      activeFrameId.value = duplicate.id;
+    });
   }
 
   function syncSelectionToActiveFrame() {
     const frame = selectedFrame.value;
     if (!frame) return;
-    frame.x = Math.round(selection.x);
-    frame.y = Math.round(selection.y);
-    frame.w = frameW.value;
-    frame.h = frameH.value;
+    const nextFrame = {
+      x: Math.round(selection.x),
+      y: Math.round(selection.y),
+      w: frameW.value,
+      h: frameH.value,
+    };
+    if (frame.x === nextFrame.x && frame.y === nextFrame.y && frame.w === nextFrame.w && frame.h === nextFrame.h) {
+      return;
+    }
+    runWithHistory(() => {
+      frame.x = nextFrame.x;
+      frame.y = nextFrame.y;
+      frame.w = nextFrame.w;
+      frame.h = nextFrame.h;
+    });
   }
 
   function generateExportData() {
@@ -333,6 +455,7 @@ export function useSpriteEditor() {
 
   return {
     imageElement,
+    imageSrc,
     imageName,
     imgLoaded,
     imgNaturalWidth,
@@ -351,6 +474,8 @@ export function useSpriteEditor() {
     selectedFrame,
     imageSummary,
     canExportJson,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
     getSnapGridSize,
     snapPointToGrid,
     snapToGrid,
@@ -376,6 +501,9 @@ export function useSpriteEditor() {
     updateFrameName,
     duplicateFrame,
     syncSelectionToActiveFrame,
+    undo: history.undo,
+    redo: history.redo,
+    clearHistory: history.clearHistory,
     generateExportData,
     copyJson,
     downloadJson,
