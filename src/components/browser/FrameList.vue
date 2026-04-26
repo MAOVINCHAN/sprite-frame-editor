@@ -1,6 +1,6 @@
 <script setup>
 import { inject } from "vue";
-import { Copy, GripVertical, Trash2 } from "lucide-vue-next";
+import { GripVertical, Trash2 } from "lucide-vue-next";
 import { SPRITE_EDITOR_KEY } from "../../composables/useSpriteEditor";
 
 const editor = inject(SPRITE_EDITOR_KEY);
@@ -38,9 +38,7 @@ function onDrop(event, targetId) {
         <span />
         <span>#</span>
         <span>名称</span>
-        <span>坐标</span>
-        <span>尺寸</span>
-        <span>操作</span>
+        <span>删除</span>
       </div>
       <div
         v-for="(frame, index) in editor.activeGroup.value?.frames ?? []"
@@ -66,21 +64,7 @@ function onDrop(event, targetId) {
           @focus="editor.selectFrame(frame.id)"
           @change="editor.updateFrameName(frame.id, $event.target.value)"
         />
-        <button class="frame-cell-button" type="button" @click="editor.selectFrame(frame.id)">
-          {{ frame.x }}, {{ frame.y }}
-        </button>
-        <button class="frame-cell-button" type="button" @click="editor.selectFrame(frame.id)">
-          {{ frame.w }} x {{ frame.h }}
-        </button>
         <div class="frame-actions">
-          <button
-            class="icon-button"
-            type="button"
-            title="复制帧"
-            @click="editor.duplicateFrame(frame.id)"
-          >
-            <Copy :size="14" />
-          </button>
           <button
             class="icon-button subtle-danger"
             type="button"
