@@ -32,9 +32,9 @@ const editor = inject(SPRITE_EDITOR_KEY);
     >
       <span>覆盖当前帧</span>
     </button>
-    <button class="btn btn-outline" type="button" @click="editor.generateAllGridFrames">
+    <button class="btn btn-outline" type="button" @click="editor.toggleGridFrames">
       <ScanSearch :size="16" />
-      <span>生成全部网格帧</span>
+      <span>{{ editor.activeGroupHasFrames.value ? "取消全部网格帧" : "生成全部网格帧" }}</span>
     </button>
   </div>
 </template>

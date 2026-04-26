@@ -66,6 +66,7 @@ export function useSpriteEditor() {
   const selectedFrame = computed(
     () => activeGroup.value?.frames.find((frame) => frame.id === activeFrameId.value) ?? null,
   );
+  const activeGroupHasFrames = computed(() => (activeGroup.value?.frames.length ?? 0) > 0);
   const imageSummary = computed(() => {
     if (!imgLoaded.value) return "未上传图片";
     return `${imgNaturalWidth.value} × ${imgNaturalHeight.value}`;
@@ -341,6 +342,14 @@ export function useSpriteEditor() {
     });
   }
 
+  function toggleGridFrames() {
+    if (activeGroupHasFrames.value) {
+      clearCurrentGroupFrames();
+      return;
+    }
+    generateAllGridFrames();
+  }
+
   function deleteFrame(frameId) {
     if (!activeGroup.value) return;
     runWithHistory(() => {
@@ -472,6 +481,7 @@ export function useSpriteEditor() {
     activeFrameId,
     totalFrames,
     selectedFrame,
+    activeGroupHasFrames,
     imageSummary,
     canExportJson,
     canUndo: history.canUndo,
@@ -495,6 +505,7 @@ export function useSpriteEditor() {
     captureCurrentFrame,
     generateAllGridFrames,
     clearCurrentGroupFrames,
+    toggleGridFrames,
     deleteFrame,
     reorderFrames,
     selectFrame,
