@@ -6,9 +6,13 @@
         <p class="section-subtitle">管理动作组、帧顺序和命名</p>
       </div>
     </div>
-    <div class="explorer-shell">
-      <GroupTabs />
-      <FrameList />
+    <div class="explorer-shell explorer-shell-split">
+      <aside class="explorer-sidebar">
+        <GroupTabs />
+      </aside>
+      <section class="explorer-content">
+        <FrameList />
+      </section>
     </div>
   </section>
 </template>
