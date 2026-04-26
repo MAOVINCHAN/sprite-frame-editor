@@ -67,6 +67,7 @@ export function useSpriteEditor() {
     if (!imgLoaded.value) return "未上传图片";
     return `${imgNaturalWidth.value} × ${imgNaturalHeight.value}`;
   });
+  const canExportJson = computed(() => imgLoaded.value && totalFrames.value > 0);
 
   function normalizePositiveInt(value, fallback = 1) {
     const parsed = Number.parseInt(value, 10);
@@ -314,10 +315,12 @@ export function useSpriteEditor() {
   }
 
   async function copyJson() {
+    if (!canExportJson.value) return;
     await copy(JSON.stringify(generateExportData(), null, 2));
   }
 
   function downloadJson() {
+    if (!canExportJson.value) return;
     const blob = new Blob([JSON.stringify(generateExportData(), null, 2)], {
       type: "application/json",
     });
@@ -347,6 +350,7 @@ export function useSpriteEditor() {
     totalFrames,
     selectedFrame,
     imageSummary,
+    canExportJson,
     getSnapGridSize,
     snapPointToGrid,
     snapToGrid,

@@ -387,11 +387,23 @@ input:focus {
   box-shadow: 0 10px 24px rgba(22, 93, 255, 0.22);
 }
 
+.btn:disabled {
+  color: rgba(20, 33, 61, 0.38);
+  background: rgba(20, 33, 61, 0.08);
+  border-color: transparent;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 .btn:hover,
 .tool-toggle:hover,
 .list-item:hover,
 .group-tab:hover {
   filter: brightness(1.04);
+}
+
+.btn:disabled:hover {
+  filter: none;
 }
 
 .btn:active,

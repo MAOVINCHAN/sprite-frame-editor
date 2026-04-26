@@ -9,14 +9,23 @@ const editor = inject(SPRITE_EDITOR_KEY);
 <template>
   <div class="export-bar">
     <div class="export-summary">
-      <span class="hint-text">已准备 {{ editor.totalFrames.value }} 帧</span>
       <span class="badge">{{ editor.groups.value.length }} 个分组</span>
     </div>
-    <button class="btn" type="button" @click="editor.copyJson">
+    <button
+      class="btn"
+      type="button"
+      :disabled="!editor.canExportJson.value"
+      @click="editor.copyJson"
+    >
       <Copy :size="16" />
       <span>复制 JSON</span>
     </button>
-    <button class="btn btn-outline" type="button" @click="editor.downloadJson">
+    <button
+      class="btn btn-outline"
+      type="button"
+      :disabled="!editor.canExportJson.value"
+      @click="editor.downloadJson"
+    >
       <Download :size="16" />
       <span>下载</span>
     </button>
